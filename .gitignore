@@ -3,6 +3,9 @@ bin
 obj
 *.suo
 TestResults
+*.csproj.user
+*.XML
+*.testrunconfig
 
 # Ignore aurora service generated files
 YASO/build/
