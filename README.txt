@@ -1,10 +1,8 @@
 NWebSocket-Client
 =================
-WebSocket client implementation for .NET applications.
-This is port of the Java client libarary at http://github.com/adamac/Java-WebSocket-client
+This is a .NET 4 version of Ido Ran's Websocket client implementation.
+I've changed the project to .NET4 and added Rx (Reactive Extensions for .NET) to it.
+This version handles large streams coming from the server (the original framer seemed to drop every other message or so).
 
-See License.txt for license information.
-
-Developed by Ido Ran (ido.ran@gmail.com)
-
-YASO is a sample chat application which use WebSocket built with J2EE and Glassfish.
+ToDo:
+  Add more documentation :)
