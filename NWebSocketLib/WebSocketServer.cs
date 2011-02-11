@@ -200,25 +200,16 @@ namespace WebSocketServer
             using (var reader = new StreamReader(stream))
             using (var writer = new StreamWriter(stream))
             {
-                //read handshake from client (no need to actually read it, we know its there):
-                loggerEvents.OnNext(new Log("Reading client handshake:", ServerLogLevel.Verbose));
-                
-                string r = null;
-                while (r != "")
-                {
-                    r = reader.ReadLine();
-                    loggerEvents.OnNext(new Log(r, ServerLogLevel.Verbose));
-                }
-
-                // send handshake to the client
                 writer.WriteLine("HTTP/1.1 101 Web Socket Protocol Handshake");
                 writer.WriteLine("Upgrade: WebSocket");
                 writer.WriteLine("Connection: Upgrade");
-                writer.WriteLine("WebSocket-Origin: " + webSocketOrigin);
-                writer.WriteLine("WebSocket-Location: " + webSocketLocation);
+                writer.WriteLine("WebSocket-Origin: "+webSocketOrigin);
+                writer.WriteLine("WebSocket-Location: "+webSocketLocation);
                 writer.WriteLine("");
             }
-
+            //read handshake from client (no need to actually read it, we know its there):
+            loggerEvents.OnNext(new Log("Reading client handshake:", ServerLogLevel.Verbose));
+                
             // tell the nerds whats going on
             loggerEvents.OnNext(new Log("Sending handshake:", ServerLogLevel.Verbose));
             loggerEvents.OnNext(new Log("HTTP/1.1 101 Web Socket Protocol Handshake", ServerLogLevel.Verbose));

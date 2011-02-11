@@ -10,7 +10,7 @@ namespace ServerConsole
         static WebSocketServer.WebSocketServer server;
         static void Main(string[] args)
         {
-            server = new WebSocketServer.WebSocketServer(8080, "http://localhost:8080", "ws://localhost:8080/chat");
+            server = new WebSocketServer.WebSocketServer(8181, null, "ws://localhost:8181");
             server.ClientSocketEvents.Subscribe(info =>
             {
                 Console.WriteLine("Client socket: " + info.Message);
@@ -23,6 +23,7 @@ namespace ServerConsole
             {
                 Console.WriteLine(x.LogMessage);
             });
+
             server.OnMessage.Subscribe(msg =>
             {
                 Console.WriteLine(string.Format("{0} - sent message : {1}", msg.Item1, msg.Item2));
@@ -32,6 +33,7 @@ namespace ServerConsole
             {
                 Console.WriteLine("Error in message loop: " + ex.Message);
             });
+            
             server.Start();
             Console.WriteLine("Started server....Press any key to exit");
             Console.ReadKey();
