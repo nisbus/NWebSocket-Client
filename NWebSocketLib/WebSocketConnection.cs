@@ -81,10 +81,11 @@ namespace NWebSocketLib
         /// <param name="messageConversionFunc">A function for converting the string message to for example a .NET object</param>
         public WebSocketConnection(Socket socket, int bufferSize)
         {
+            this.bufferSize = bufferSize;
             Socket = socket;
             dataBuffer = new byte[bufferSize];
             dataString = new StringBuilder();
-
+           
             //This is where the framing takes place
             incomingStream.Subscribe(x =>
             {
@@ -131,7 +132,7 @@ namespace NWebSocketLib
                     Socket.Send(new byte[] { (byte)WrapperBytes.End }, 1, 0);
 
                     //This is where the client can monitor all sent messages, for debugging or logging
-                    onSocketEvent.OnNext(new SocketInfo(SocketInfoCode.Sent, str));
+                    //onSocketEvent.OnNext(new SocketInfo(SocketInfoCode.Sent, str));
                 }
                 catch (Exception ex)
                 {

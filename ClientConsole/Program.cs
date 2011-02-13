@@ -11,7 +11,7 @@ namespace ClientConsole
         static WebSocketClient client;
         static void Main(string[] args)
         {
-            client = new WebSocketClient(new Uri("ws://localhost:8080/chat"));
+            client = new WebSocketClient(new Uri("ws://127.0.0.1:8181"));
             client.OnSocketInfo.Subscribe(x =>
             {
                 Console.WriteLine(x.Message);

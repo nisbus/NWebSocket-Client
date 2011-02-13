@@ -6,7 +6,6 @@ using System.Net.Sockets;
 using System.IO;
 using System.Collections.Specialized;
 using System.Net;
-using WebSocketServer;
 
 namespace NWebSocketLib
 {
@@ -100,7 +99,7 @@ namespace NWebSocketLib
         /// Establishes the connection
         /// </summary>
         public void Connect()
-        {
+        {            
             string host = uri.Host;
             StringBuilder path = new StringBuilder(uri.AbsolutePath);
             if (path.Length == 0)
@@ -124,37 +123,35 @@ namespace NWebSocketLib
             {
                 host = host + ":" + port;
             }
-
+            
+            ClientHandshake shake = new ClientHandshake();
+            shake.Host = host;
+            shake.Origin = origin;
+            shake.AdditionalFields = headers;
+            shake.Key1 = Guid.NewGuid().ToString();
+            shake.Key2 = Guid.NewGuid().ToString();
+            shake.Key1 = shake.Key1.Replace('-', ' ').Substring(0,10);
+            shake.Key2 = shake.Key2.Replace('-', ' ').Substring(0, 10);
+            var baseChallenge = Guid.NewGuid().ToString().Substring(0,8);
+            var challenge = baseChallenge.Substring(0, 2) + " " + baseChallenge.Substring(3, 2) + " " + baseChallenge.Substring(5, 2);
+            shake.ChallengeBytes = new ArraySegment<byte>(Encoding.UTF8.GetBytes(challenge));
+            shake.ResourcePath = path.ToString();
             networkStream = new NetworkStream(socket);
             outputStream = new StreamWriter(networkStream, Encoding.UTF8);
-            StringBuilder extraHeaders = new StringBuilder();
-            foreach (var headerEntry in headers)
-            {
-                extraHeaders.AppendFormat("{0}: {1}\r\n", headerEntry.Key, headerEntry.Value);
-            }
-
-            string request = string.Format(
-               "GET {0} HTTP/1.1\r\n" +
-               "Upgrade: WebSocket\r\n" +
-               "Connection: Upgrade\r\n" +
-               "Host: {1}\r\n" +
-               "Origin: {2}\r\n" +
-               "{3}" +
-               "\r\n",
-               path, host, origin, extraHeaders);
-
-            byte[] encodedHandshake = Encoding.UTF8.GetBytes(request);
+            var response = shake.ToString();
+            byte[] encodedHandshake = Encoding.UTF8.GetBytes(response);
             networkStream.Write(encodedHandshake, 0, encodedHandshake.Length);
             networkStream.Flush();
+            var expectedAnswer = Encoding.UTF8.GetString(HandshakeHelper.CalculateAnswerBytes(shake.Key1, shake.Key2, shake.ChallengeBytes));
 
             inputStream = new StreamReader(networkStream);
             string header = inputStream.ReadLine();
-            if (!header.Equals("HTTP/1.1 101 Web Socket Protocol Handshake"))
+            if (!header.Equals("HTTP/1.1 101 WebSocket Protocol Handshake"))
             {
                 onSocketInfo.OnError(new InvalidOperationException("Invalid handshake response"));
                 throw new InvalidOperationException("Invalid handshake response");
             }
-
+            
             header = inputStream.ReadLine();
             if (!header.Equals("Upgrade: WebSocket"))
             {

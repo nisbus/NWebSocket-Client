@@ -71,6 +71,7 @@
       <SpecificVersion>False</SpecificVersion>
       <HintPath>..\Libs\System.Reactive.dll</HintPath>
     </Reference>
+    <Reference Include="System.Web" />
     <Reference Include="System.Xml.Linq">
       <RequiredTargetFramework>3.5</RequiredTargetFramework>
     </Reference>
@@ -82,6 +83,7 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="ClientInfo.cs" />
+    <Compile Include="HandShakes.cs" />
     <Compile Include="Log.cs" />
     <Compile Include="SocketInfo.cs" />
     <Compile Include="WebSocketClient.cs" />

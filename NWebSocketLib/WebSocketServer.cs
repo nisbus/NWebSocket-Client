@@ -3,11 +3,10 @@ using System.Collections.Generic;
 using System.Net.Sockets;
 using System.Net;
 using System.IO;
-using NWebSocketLib;
 using System.Linq;
 using System.Text;
 
-namespace WebSocketServer
+namespace NWebSocketLib
 {
     public enum ServerLogLevel { Nothing, Subtle, Verbose };
     public delegate void ClientConnectedEventHandler(WebSocketConnection sender, EventArgs e);
@@ -29,6 +28,7 @@ namespace WebSocketServer
         private Subject<ClientInfo> clientSocketEvents = new Subject<ClientInfo>();
         private Subject<Log> loggerEvents = new Subject<Log>();
         private Subject<Tuple<WebSocketConnection, string>> onMessage = new Subject<Tuple<WebSocketConnection,string>>();
+
         #endregion
 
         #region Properties
@@ -126,33 +126,9 @@ namespace WebSocketServer
 
         private void OnClientConnect(IAsyncResult asyn)
         {
-            // create a new socket for the connection
             var clientSocket = ListenerSocker.EndAccept(asyn);
-
-            // shake hands to give the new client a warm welcome
-            ShakeHands(clientSocket);
-
-            // oh joy we have a connection - lets tell everybody about it
-            loggerEvents.OnNext(new Log(DateTime.Now + "> new connection from " + clientSocket.LocalEndPoint, ServerLogLevel.Subtle));
-
-            // keep track of the new guy
-            var clientConnection = new WebSocketConnection(clientSocket);
-            Connections.Add(clientConnection);
-            clientConnection.OnSocketInfo.Where(si => si.Code == SocketInfoCode.Closed).Subscribe(_ =>
-            {
-                ClientDisconnected(clientConnection, EventArgs.Empty);
-            });
-
-            // invoke the connection event
-            clientSocketEvents.OnNext(new ClientInfo(SocketInfoCode.Connected, ""));
-
-            if (LogLevel != ServerLogLevel.Nothing)
-                clientConnection.OnMessage.Subscribe(x =>
-                {
-                    DataReceivedFromClient(clientConnection, x);
-                });
-            // listen for more clients
-            ListenForClients();
+            byte[] buffer = new byte[1024];
+            clientSocket.BeginReceive(buffer, 0, 1024, 0, new AsyncCallback(ShakeHands), new Tuple<byte[], Socket>(buffer,clientSocket));
         }
 
         void ClientDisconnected(WebSocketConnection sender, EventArgs e)
@@ -194,30 +170,40 @@ namespace WebSocketServer
         /// <summary>
         /// Takes care of the initial handshaking between the the client and the server
         /// </summary>
-        private void ShakeHands(Socket conn)
+        private void ShakeHands(IAsyncResult ar)
         {
-            using (var stream = new NetworkStream(conn))
-            using (var reader = new StreamReader(stream))
-            using (var writer = new StreamWriter(stream))
+            var bufferAndSocket = (Tuple<byte[], Socket>)ar.AsyncState;
+            var receivedByteCount = bufferAndSocket.Item2.EndReceive(ar);
+            var clientHandshake = HandshakeHelper.ParseClientHandshake(new ArraySegment<byte>(bufferAndSocket.Item1, 0, receivedByteCount));
+            var response = HandshakeHelper.GenerateResponseHandshake(clientHandshake);
+            bufferAndSocket.Item2.BeginSend(response, 0, response.Length, 0, EndSendServerHandshake, bufferAndSocket.Item2);
+        }
+
+        private void EndSendServerHandshake(IAsyncResult ar)
+        {
+            Socket socket = (Socket)ar.AsyncState;
+            socket.EndSend(ar);
+
+            loggerEvents.OnNext(new Log(DateTime.Now + "> new connection from " + socket.LocalEndPoint, ServerLogLevel.Subtle));
+
+            // keep track of the new guy
+            var clientConnection = new WebSocketConnection(socket);
+            Connections.Add(clientConnection);
+            clientConnection.OnSocketInfo.Where(si => si.Code == SocketInfoCode.Closed).Subscribe(_ =>
             {
-                writer.WriteLine("HTTP/1.1 101 Web Socket Protocol Handshake");
-                writer.WriteLine("Upgrade: WebSocket");
-                writer.WriteLine("Connection: Upgrade");
-                writer.WriteLine("WebSocket-Origin: "+webSocketOrigin);
-                writer.WriteLine("WebSocket-Location: "+webSocketLocation);
-                writer.WriteLine("");
-            }
-            //read handshake from client (no need to actually read it, we know its there):
-            loggerEvents.OnNext(new Log("Reading client handshake:", ServerLogLevel.Verbose));
-                
-            // tell the nerds whats going on
-            loggerEvents.OnNext(new Log("Sending handshake:", ServerLogLevel.Verbose));
-            loggerEvents.OnNext(new Log("HTTP/1.1 101 Web Socket Protocol Handshake", ServerLogLevel.Verbose));
-            loggerEvents.OnNext(new Log("Upgrade: WebSocket", ServerLogLevel.Verbose));
-            loggerEvents.OnNext(new Log("Connection: Upgrade", ServerLogLevel.Verbose));
-            loggerEvents.OnNext(new Log("WebSocket-Origin: " + webSocketOrigin, ServerLogLevel.Verbose));
-            loggerEvents.OnNext(new Log("WebSocket-Location: " + webSocketLocation, ServerLogLevel.Verbose));
-            loggerEvents.OnNext(new Log("Started listening to client", ServerLogLevel.Verbose));
+                ClientDisconnected(clientConnection, EventArgs.Empty);
+            });
+
+            // invoke the connection event
+            clientSocketEvents.OnNext(new ClientInfo(SocketInfoCode.Connected, ""));
+
+            if (LogLevel != ServerLogLevel.Nothing)
+            clientConnection.OnMessage.Subscribe(x =>
+            {
+                DataReceivedFromClient(clientConnection, x);
+            });
+            // listen for more clients
+            ListenForClients();
         }
 
         #endregion

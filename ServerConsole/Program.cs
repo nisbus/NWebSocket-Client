@@ -2,15 +2,16 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using NWebSocketLib;
 
 namespace ServerConsole
 {
     class Program
     {
-        static WebSocketServer.WebSocketServer server;
+        static WebSocketServer server;
         static void Main(string[] args)
         {
-            server = new WebSocketServer.WebSocketServer(8181, null, "ws://localhost:8181");
+            server = new WebSocketServer(8181, null, "ws://localhost:8181");
             server.ClientSocketEvents.Subscribe(info =>
             {
                 Console.WriteLine("Client socket: " + info.Message);
@@ -35,8 +36,15 @@ namespace ServerConsole
             });
             
             server.Start();
-            Console.WriteLine("Started server....Press any key to exit");
-            Console.ReadKey();
+            Console.WriteLine("Started server....Press any key to send to clients");
+            SendToAll();
+        }
+
+        private static void SendToAll()
+        {
+            var msg = Console.ReadLine();
+            server.SendToAll(msg);
+            SendToAll();
         }
     }
 }
