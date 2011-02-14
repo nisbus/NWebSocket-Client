@@ -154,12 +154,12 @@ namespace NWebSocketLib
         #region Methods
 
         // look for connecting clients
-        private void ListenForClients()
+        void ListenForClients()
         {
             ListenerSocker.BeginAccept(new AsyncCallback(OnClientConnect), null);
         }
 
-        private void OnClientConnect(IAsyncResult asyn)
+        void OnClientConnect(IAsyncResult asyn)
         {
             var clientSocket = ListenerSocker.EndAccept(asyn);
             byte[] buffer = new byte[1024];
@@ -178,7 +178,6 @@ namespace NWebSocketLib
             onMessage.OnNext(new Tuple<WebSocketConnection, string>(sender, data));
             loggerEvents.OnNext(new Log(string.Format("{0} > data ({1} bytes) from {2} : {3}", DateTime.Now, Encoding.UTF8.GetByteCount(data), sender.Socket.LocalEndPoint,data), ServerLogLevel.Verbose));
         }
-
 
         /// <summary>
         /// Takes care of the initial handshaking between the the client and the server
