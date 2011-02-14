@@ -9,7 +9,6 @@ using System.Text;
 namespace NWebSocketLib
 {
     public enum ServerLogLevel { Nothing, Subtle, Verbose };
-    public delegate void ClientConnectedEventHandler(WebSocketConnection sender, EventArgs e);
 
     /// <summary>
     /// This class was downloaded from http://nugget.codeplex.com/
@@ -74,6 +73,14 @@ namespace NWebSocketLib
         /// </summary>
         public int Port { get; private set; }
 
+        public int ClientCount
+        {
+            get
+            {
+                return this.Connections.Count;
+            }
+        }
+
         #endregion
 
         #region Ctor
@@ -114,6 +121,34 @@ namespace NWebSocketLib
             }
         }
 
+        public void Send(string data, WebSocketConnection client)
+        {
+            client.Send(data);
+        }
+
+        /// <summary>
+        /// send a string to all the clients (you spammer!)
+        /// </summary>
+        /// <param name="data">the string to send</param>
+        public void Publish(string data)
+        {
+            Connections.ForEach(a => a.Send(data));
+        }
+
+        /// <summary>
+        /// send a string to all the clients except one
+        /// </summary>
+        /// <param name="data">the string to send</param>
+        /// <param name="indifferent">the client that doesn't care</param>
+        public void SendToAllExceptOne(string data, WebSocketConnection indifferent)
+        {
+            foreach (var client in Connections)
+            {
+                if (client != indifferent)
+                    client.Send(data);
+            }
+        }
+
         #endregion
 
         #region Methods
@@ -144,28 +179,6 @@ namespace NWebSocketLib
             loggerEvents.OnNext(new Log(string.Format("{0} > data ({1} bytes) from {2} : {3}", DateTime.Now, Encoding.UTF8.GetByteCount(data), sender.Socket.LocalEndPoint,data), ServerLogLevel.Verbose));
         }
 
-        /// <summary>
-        /// send a string to all the clients (you spammer!)
-        /// </summary>
-        /// <param name="data">the string to send</param>
-        public void SendToAll(string data)
-        {
-            Connections.ForEach(a => a.Send(data));
-        }
-
-        /// <summary>
-        /// send a string to all the clients except one
-        /// </summary>
-        /// <param name="data">the string to send</param>
-        /// <param name="indifferent">the client that doesn't care</param>
-        public void SendToAllExceptOne(string data, WebSocketConnection indifferent)
-        {
-            foreach (var client in Connections)
-            {
-                if (client != indifferent)
-                    client.Send(data);
-            }
-        }
 
         /// <summary>
         /// Takes care of the initial handshaking between the the client and the server

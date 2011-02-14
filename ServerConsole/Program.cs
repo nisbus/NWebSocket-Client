@@ -43,7 +43,7 @@ namespace ServerConsole
         private static void SendToAll()
         {
             var msg = Console.ReadLine();
-            server.SendToAll(msg);
+            server.Publish(msg);
             SendToAll();
         }
     }

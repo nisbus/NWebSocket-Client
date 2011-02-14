@@ -14,8 +14,9 @@ namespace NWebSocketLib
     /// </summary>
     /// <remarks>
     /// This class design to mimic JavaScript's WebSocket class.
-    /// It handle the handshake and framing of the data and provide MessageReceived event to handle messages.
+    /// It handle the handshake and framing of the data and provides OnMessage IQbservable event to handle messages.
     /// Please note that this event is raised on a arbitrary pooled background thread.
+    /// See the SubscribeOnDispatcher to raise the event on the UI thread.
     /// </remarks>
     public class WebSocketClient
     {
@@ -63,6 +64,14 @@ namespace NWebSocketLib
             get
             {
                 return onSocketInfo.AsQbservable();
+            }
+        }
+        
+        public bool IsConnected
+        {
+            get
+            {
+                return this.socket != null && this.socket.Connected;
             }
         }
 
@@ -117,6 +126,7 @@ namespace NWebSocketLib
             string origin = "http://" + host;
 
             socket = CreateSocket();
+            
             IPEndPoint localEndPoint = (IPEndPoint)socket.LocalEndPoint;
             int port = localEndPoint.Port;
             if (port != 80)
@@ -145,6 +155,7 @@ namespace NWebSocketLib
             var expectedAnswer = Encoding.UTF8.GetString(HandshakeHelper.CalculateAnswerBytes(shake.Key1, shake.Key2, shake.ChallengeBytes));
 
             inputStream = new StreamReader(networkStream);
+            //var input = inputStream.ReadToEnd();
             string header = inputStream.ReadLine();
             if (!header.Equals("HTTP/1.1 101 WebSocket Protocol Handshake"))
             {
@@ -170,8 +181,11 @@ namespace NWebSocketLib
             do
             {
                 header = inputStream.ReadLine();
+                Console.WriteLine(header);
             } while (!header.Equals(""));
 
+           // var answer = inputStream.ReadLine();
+           // Console.WriteLine(answer);
             handshakeComplete = true;
 
             connection = new WebSocketConnection(socket);

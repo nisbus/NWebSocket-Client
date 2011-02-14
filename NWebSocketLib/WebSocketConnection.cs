@@ -65,20 +65,15 @@ namespace NWebSocketLib
         /// <summary>
         /// constructor
         /// </summary>
-        /// <param name="connection">The socket on which to esablish the connection</param>
-        /// <param name="webSocketOrigin">The origin from which the server is willing to accept connections, usually this is your web server. For example: http://localhost:8080.</param>
-        /// <param name="webSocketLocation">The location of the web socket server (the server on which this code is running). For example: ws://localhost:8181/service. The '/service'-part is important it could be '/somethingelse' but it needs to be there.</param>
+        /// <param name="socket">The socket on which to esablish the connection</param>
         public WebSocketConnection(Socket socket)
             : this(socket, 255) { }
 
         /// <summary>
         /// constructor
         /// </summary>
-        /// <param name="connection">The socket on which to esablish the connection</param>
-        /// <param name="webSocketOrigin">The origin from which the server is willing to accept connections, usually this is your web server. For example: http://localhost:8080.</param>
-        /// <param name="webSocketLocation">The location of the web socket server (the server on which this code is running). For example: ws://localhost:8181/service. The '/service'-part is important it could be '/somethingelse' but it needs to be there.</param>
+        /// <param name="socket">The socket on which to esablish the connection</param>
         /// <param name="bufferSize">The size of the buffer used to receive data</param>
-        /// <param name="messageConversionFunc">A function for converting the string message to for example a .NET object</param>
         public WebSocketConnection(Socket socket, int bufferSize)
         {
             this.bufferSize = bufferSize;
@@ -205,8 +200,6 @@ namespace NWebSocketLib
                 onMessage.OnCompleted();
             }
         }
-
-
 
         /// <summary>
         /// Closes the socket
