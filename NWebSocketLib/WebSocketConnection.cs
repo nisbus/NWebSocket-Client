@@ -4,6 +4,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace NWebSocketLib
 {
@@ -27,13 +28,18 @@ namespace NWebSocketLib
         Subject<string> onMessage = new Subject<string>();            // a backing subject for the OnMessage subscription
         Subject<SocketInfo> onSocketEvent = new Subject<SocketInfo>();  // a backing subject for socket events, used for debugging and logging
         private bool isClosed;
-        /// <summary>
-        /// Gets the socket used for the connection
-        /// </summary>
+        
+        private Regex messageRx = new Regex("~m~([\\d.]+)~m~(.*)");
+        private Regex timeRx = new Regex("([\\d.]+):([\\d.]+):([\\d.]+)-(\\d.)+");
+        private bool isSocketIO;
+
         #endregion
 
         #region Properties
 
+        /// <summary>
+        /// Gets the socket used for the connection
+        /// </summary>
         public Socket Socket { get; private set; }
 
         ///<summary>
@@ -65,14 +71,7 @@ namespace NWebSocketLib
         /// <summary>
         /// constructor
         /// </summary>
-        /// <param name="socket">The socket on which to esablish the connection</param>
-        public WebSocketConnection(Socket socket)
-            : this(socket, 255) { }
-
-        /// <summary>
-        /// constructor
-        /// </summary>
-        /// <param name="socket">The socket on which to esablish the connection</param>
+        /// <param name="connection">The socket on which to esablish the connection</param>
         /// <param name="bufferSize">The size of the buffer used to receive data</param>
         public WebSocketConnection(Socket socket, int bufferSize)
         {
@@ -80,30 +79,43 @@ namespace NWebSocketLib
             Socket = socket;
             dataBuffer = new byte[bufferSize];
             dataString = new StringBuilder();
-           
+
             //This is where the framing takes place
             incomingStream.Subscribe(x =>
             {
-                if (x == (byte)WrapperBytes.End)
-                {
-                    onMessage.OnNext(dataString.ToString());
-                    dataString = null;
-                    dataString = new StringBuilder();
-                }
-                else if (x != (byte)WrapperBytes.Start)
-                {
-                    dataString.Append(Encoding.UTF8.GetString(new byte[1] { x }, 0, 1));
-                }
+                Frame(x);
             }, (ex) =>//The subscription received an exception and forwards it to the message listener
             {
                 onMessage.OnError(ex);
             }, () =>//The subscription has completed i.e. the connection is closed.
             {
                 onMessage.OnCompleted();
-            });
+            });            
+        }
 
+        /// <summary>
+        /// constructor
+        /// </summary>
+        /// <param name="connection">The socket on which to esablish the connection</param>
+        /// <param name="webSocketOrigin">The origin from which the server is willing to accept connections, usually this is your web server. For example: http://localhost:8080.</param>
+        /// <param name="webSocketLocation">The location of the web socket server (the server on which this code is running). For example: ws://localhost:8181/service. The '/service'-part is important it could be '/somethingelse' but it needs to be there.</param>
+        public WebSocketConnection(Socket socket)
+            : this(socket, 255) { Listen(); }
+
+        public WebSocketConnection(Socket socket, bool socketIo)
+            : this(socket, 255)
+        {
+            this.isSocketIO = socketIo;
             Listen();
         }
+
+        public WebSocketConnection(Socket socket, int bufferSize, bool socketIo)
+            : this(socket, bufferSize)
+        {
+            this.isSocketIO = socketIo;
+            Listen();
+        }
+
 
         #endregion
 
@@ -122,6 +134,9 @@ namespace NWebSocketLib
                     // start with a 0x00
                     Socket.Send(new byte[] { (byte)WrapperBytes.Start }, 1, 0);
                     // send the string
+                    if (isSocketIO)
+                        Socket.Send(Encoding.UTF8.GetBytes(EncodeMessage(str)));
+                    else
                     Socket.Send(Encoding.UTF8.GetBytes(str));
                     // end with a 0xFF
                     Socket.Send(new byte[] { (byte)WrapperBytes.End }, 1, 0);
@@ -150,6 +165,46 @@ namespace NWebSocketLib
         #endregion
 
         #region internal methods
+
+        private void Frame(byte x)
+        {
+            if (x == (byte)WrapperBytes.End)
+            {
+                if (isSocketIO)
+                {
+                    var msg = dataString.ToString();
+                    if (IsHeartbeat(msg))
+                        SendHeartBeat(msg);
+                    else
+                    {
+                        onMessage.OnNext(DecodeMessage(msg));
+                    }
+                }
+                else
+                    onMessage.OnNext(dataString.ToString());
+                dataString = null;
+                dataString = new StringBuilder();
+            }
+            else if (x != (byte)WrapperBytes.Start)
+            {
+                dataString.Append(Encoding.UTF8.GetString(new byte[1] { x }, 0, 1));
+            }
+        }
+
+        private string EncodeMessage(string msg)
+        {
+            return "~m~" + msg.Length + "~m~" + msg;
+        }
+
+        private string DecodeMessage(string msg)
+        {
+            return msg.Substring(msg.LastIndexOf('~') + 1);
+        }
+
+        private bool IsHeartbeat(string msg)
+        {
+            return msg.Contains("~h~");
+        }
 
         /// <summary>
         /// Listens for incomming data
@@ -199,6 +254,12 @@ namespace NWebSocketLib
             {
                 onMessage.OnCompleted();
             }
+        }
+
+        private void SendHeartBeat(string message)
+        {
+            var reply = String.Format("~h~{0}", message.Substring(message.LastIndexOf("~") + 1));
+            Send(reply);
         }
 
         /// <summary>

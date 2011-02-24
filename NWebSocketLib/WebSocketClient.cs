@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.IO;
 using System.Collections.Specialized;
 using System.Net;
+using System.Text.RegularExpressions;
 
 namespace NWebSocketLib
 {
@@ -38,6 +39,7 @@ namespace NWebSocketLib
         private Subject<SocketInfo> onSocketInfo = new Subject<SocketInfo>();
         private IDisposable socketInfoSubscription;
         private IDisposable messageSubscription;
+        private bool isSocketIo;
 
         #endregion
 
@@ -49,6 +51,12 @@ namespace NWebSocketLib
         public Dictionary<string, string> Headers
         {
             get { return headers; }
+            set { headers = value; }
+        }
+
+        public bool IsConnected
+        {
+            get { return connection != null && connection.Socket != null && connection.Socket.Connected; }
         }
 
         public IQbservable<dynamic> OnMessage
@@ -67,38 +75,34 @@ namespace NWebSocketLib
             }
         }
         
-        public bool IsConnected
-        {
-            get
-            {
-                return this.socket != null && this.socket.Connected;
-            }
-        }
-
         #endregion
 
         #region Ctor
-
-        /// <summary>
-        /// Creates a new websocket client
-        /// </summary>
-        /// <param name="uri">The uri to connect to</param>
-        public WebSocketClient(Uri uri)
-        {
-            this.messageConversionFunc = (msg) => { return msg; };
-            Initialize(uri);
-        }
 
         /// <summary>
         /// Creates a new WebSocket targeting the specified URL.
         /// </summary>
         /// <param name="uri">the uri to connect to</param>
         /// <param name="messageConversionFunc">A function to convert messages to i.e. .NET objects</param>
-        public WebSocketClient(Uri uri, Func<string, dynamic> messageConversionFunc)
+        public WebSocketClient(Uri uri, Func<string, dynamic> messageConversionFunc, bool isSocketIo)
         {
+            this.isSocketIo = isSocketIo;
             this.messageConversionFunc = messageConversionFunc;
             Initialize(uri);
         }
+
+        /// <summary>
+        /// Creates a new websocket client
+        /// </summary>
+        /// <param name="uri">The uri to connect to</param>
+        public WebSocketClient(Uri uri) : this(uri, (msg) => { return msg; }, false) { }
+
+        /// <summary>
+        /// Creates a new websocket client
+        /// </summary>
+        /// <param name="uri">The uri to connect to</param>
+        public WebSocketClient(Uri uri, bool isSocketIo) : this(uri, (msg) => { return msg; }, isSocketIo) { }
+
 
         #endregion
 
@@ -188,7 +192,7 @@ namespace NWebSocketLib
            // Console.WriteLine(answer);
             handshakeComplete = true;
 
-            connection = new WebSocketConnection(socket);
+            connection = new WebSocketConnection(socket, isSocketIo);
             SubscribeToConnectionEvents();
         }
 
@@ -205,7 +209,7 @@ namespace NWebSocketLib
                 onSocketInfo.OnCompleted();
             });
 
-            connection.OnMessage.Subscribe(x =>
+            messageSubscription = connection.OnMessage.Subscribe(x =>
             {
                 onMessage.OnNext(messageConversionFunc.Invoke(x));
             }, (exception) =>
@@ -239,6 +243,8 @@ namespace NWebSocketLib
             onSocketInfo.OnNext(new SocketInfo(SocketInfoCode.Closed, "Bye bye"));
             onSocketInfo.OnCompleted();
             onMessage.OnCompleted();
+            socketInfoSubscription.Dispose();
+            messageSubscription.Dispose();
         }
 
         /// <summary>
@@ -248,12 +254,12 @@ namespace NWebSocketLib
         public void Send(string payload)
         {
             DemandHandshake();
-
-            networkStream.WriteByte(0x00);
-            byte[] encodedPayload = Encoding.UTF8.GetBytes(payload);
-            networkStream.Write(encodedPayload, 0, encodedPayload.Length);
-            networkStream.WriteByte(0xFF);
-            networkStream.Flush();
+            connection.Send(payload);
+            //networkStream.WriteByte(0x00);
+            //byte[] encodedPayload = Encoding.UTF8.GetBytes(payload);
+            //networkStream.Write(encodedPayload, 0, encodedPayload.Length);
+            //networkStream.WriteByte(0xFF);
+            //networkStream.Flush();
         }
 
         #endregion
