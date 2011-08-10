@@ -11,10 +11,6 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "NWebSocketLib", "NWebSocketLib\NWebSocketLib.csproj", "{3E57E2A9-7A10-4C21-A253-FF3568F2A938}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ServerConsole", "ServerConsole\ServerConsole.csproj", "{909E98D8-D7A4-4194-8C0E-E76A4DE2B224}"
-EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ClientConsole", "ClientConsole\ClientConsole.csproj", "{50819946-3129-4521-93ED-5D8995E6082F}"
-EndProject
 Global
 	GlobalSection(TestCaseManagementSettings) = postSolution
 		CategoryFile = NWebSocket.vsmdi
@@ -38,26 +34,6 @@ Global
 		{3E57E2A9-7A10-4C21-A253-FF3568F2A938}.Release|Mixed Platforms.ActiveCfg = Release|Any CPU
 		{3E57E2A9-7A10-4C21-A253-FF3568F2A938}.Release|Mixed Platforms.Build.0 = Release|Any CPU
 		{3E57E2A9-7A10-4C21-A253-FF3568F2A938}.Release|x86.ActiveCfg = Release|Any CPU
-		{909E98D8-D7A4-4194-8C0E-E76A4DE2B224}.Debug|Any CPU.ActiveCfg = Debug|x86
-		{909E98D8-D7A4-4194-8C0E-E76A4DE2B224}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
-		{909E98D8-D7A4-4194-8C0E-E76A4DE2B224}.Debug|Mixed Platforms.Build.0 = Debug|x86
-		{909E98D8-D7A4-4194-8C0E-E76A4DE2B224}.Debug|x86.ActiveCfg = Debug|x86
-		{909E98D8-D7A4-4194-8C0E-E76A4DE2B224}.Debug|x86.Build.0 = Debug|x86
-		{909E98D8-D7A4-4194-8C0E-E76A4DE2B224}.Release|Any CPU.ActiveCfg = Release|x86
-		{909E98D8-D7A4-4194-8C0E-E76A4DE2B224}.Release|Mixed Platforms.ActiveCfg = Release|x86
-		{909E98D8-D7A4-4194-8C0E-E76A4DE2B224}.Release|Mixed Platforms.Build.0 = Release|x86
-		{909E98D8-D7A4-4194-8C0E-E76A4DE2B224}.Release|x86.ActiveCfg = Release|x86
-		{909E98D8-D7A4-4194-8C0E-E76A4DE2B224}.Release|x86.Build.0 = Release|x86
-		{50819946-3129-4521-93ED-5D8995E6082F}.Debug|Any CPU.ActiveCfg = Debug|x86
-		{50819946-3129-4521-93ED-5D8995E6082F}.Debug|Mixed Platforms.ActiveCfg = Debug|x86
-		{50819946-3129-4521-93ED-5D8995E6082F}.Debug|Mixed Platforms.Build.0 = Debug|x86
-		{50819946-3129-4521-93ED-5D8995E6082F}.Debug|x86.ActiveCfg = Debug|x86
-		{50819946-3129-4521-93ED-5D8995E6082F}.Debug|x86.Build.0 = Debug|x86
-		{50819946-3129-4521-93ED-5D8995E6082F}.Release|Any CPU.ActiveCfg = Release|x86
-		{50819946-3129-4521-93ED-5D8995E6082F}.Release|Mixed Platforms.ActiveCfg = Release|x86
-		{50819946-3129-4521-93ED-5D8995E6082F}.Release|Mixed Platforms.Build.0 = Release|x86
-		{50819946-3129-4521-93ED-5D8995E6082F}.Release|x86.ActiveCfg = Release|x86
-		{50819946-3129-4521-93ED-5D8995E6082F}.Release|x86.Build.0 = Release|x86
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

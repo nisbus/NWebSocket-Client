@@ -5,6 +5,9 @@ using System.IO;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Collections.Concurrent;
+using System.Threading.Tasks;
+using System.Threading;
 
 namespace NWebSocketLib
 {
@@ -19,18 +22,16 @@ namespace NWebSocketLib
     public class WebSocketConnection : IDisposable
     {
         #region Private members
+        const string HEARTBEAT = "~h~";
+        const string MESSAGE_LENGTH_DELIMITER = "~m~";
+
+        ConcurrentQueue<string> writeQueue = new ConcurrentQueue<string>();
+        CancellationTokenSource cancelSource = new CancellationTokenSource();
 
         private int bufferSize;                                         // the size of the buffer
         private byte[] dataBuffer;                                      // buffer to hold the data we are reading
-        private StringBuilder dataString;                               // holds the currently accumulated data
         private enum WrapperBytes : byte { Start = 0, End = 255 };      // data passed between client and server are wrapped in start and end bytes according to the protocol (0x00, 0xFF)
-        Subject<byte> incomingStream = new Subject<byte>();             // internal event to frame the incoming data
-        Subject<string> onMessage = new Subject<string>();            // a backing subject for the OnMessage subscription
-        Subject<SocketInfo> onSocketEvent = new Subject<SocketInfo>();  // a backing subject for socket events, used for debugging and logging
-        private bool isClosed;
-        
-        private Regex messageRx = new Regex("~m~([\\d.]+)~m~(.*)");
-        private Regex timeRx = new Regex("([\\d.]+):([\\d.]+):([\\d.]+)-(\\d.)+");
+        private bool isConnected;      
         private bool isSocketIO;
 
         #endregion
@@ -40,30 +41,11 @@ namespace NWebSocketLib
         /// <summary>
         /// Gets the socket used for the connection
         /// </summary>
-        public Socket Socket { get; private set; }
-
-        ///<summary>
-        /// Subscription for incoming messages
-        /// </summary>
-        public IQbservable<string> OnMessage
-        {
-            get
-            {
-                return onMessage.AsQbservable();
-            }
-        }
-
-        /// <summary>
-        /// Subscription for SocketInfo events (Debug and logging)
-        /// </summary>
-        public IQbservable<SocketInfo> OnSocketInfo
-        { 
-            get 
-            { 
-                return onSocketEvent.AsQbservable(); 
-            } 
-        }
-
+        public Stream Stream { get; set; }
+        public bool IsConnected { get { return isConnected; } }
+        public event Action<string> OnMessage;
+        public event Action<Exception> OnError;
+        
         #endregion
 
         #region Constructors
@@ -73,24 +55,49 @@ namespace NWebSocketLib
         /// </summary>
         /// <param name="connection">The socket on which to esablish the connection</param>
         /// <param name="bufferSize">The size of the buffer used to receive data</param>
-        public WebSocketConnection(Socket socket, int bufferSize)
+        public WebSocketConnection(Stream stream, int bufferSize)
         {
             this.bufferSize = bufferSize;
-            Socket = socket;
-            dataBuffer = new byte[bufferSize];
-            dataString = new StringBuilder();
+            Stream = stream;            
+            dataBuffer = new byte[bufferSize];            
+            //Start the writer thread
+            StartWriterThread();
+            isConnected = true;
+        }
 
-            //This is where the framing takes place
-            incomingStream.Subscribe(x =>
+        private void StartWriterThread()
+        {
+            new TaskFactory().StartNew(() =>
             {
-                Frame(x);
-            }, (ex) =>//The subscription received an exception and forwards it to the message listener
-            {
-                onMessage.OnError(ex);
-            }, () =>//The subscription has completed i.e. the connection is closed.
-            {
-                onMessage.OnCompleted();
-            });            
+                while (!cancelSource.IsCancellationRequested)
+                {
+                    if (writeQueue.Count == 0)
+                    {
+                        lock (writeQueue)
+                        {
+                            Monitor.Wait(writeQueue);
+                            continue;
+                        }
+                    }
+                    if (!cancelSource.IsCancellationRequested)
+                    {
+                        string message;
+                        writeQueue.TryDequeue(out message);
+                        try
+                        {
+                            byte[] msg = EncodeSendMessage(message);
+                            Stream.Write(msg, 0, msg.Length);
+                        }
+                        catch (Exception ex)
+                        {
+                            if (OnError != null && !cancelSource.IsCancellationRequested)
+                                OnError(ex);
+
+                            //throw;
+                        }
+                    }
+                }
+            }, cancelSource.Token);
         }
 
         /// <summary>
@@ -99,23 +106,20 @@ namespace NWebSocketLib
         /// <param name="connection">The socket on which to esablish the connection</param>
         /// <param name="webSocketOrigin">The origin from which the server is willing to accept connections, usually this is your web server. For example: http://localhost:8080.</param>
         /// <param name="webSocketLocation">The location of the web socket server (the server on which this code is running). For example: ws://localhost:8181/service. The '/service'-part is important it could be '/somethingelse' but it needs to be there.</param>
-        public WebSocketConnection(Socket socket)
-            : this(socket, 255) { Listen(); }
+        public WebSocketConnection(Stream stream)
+            : this(stream, 255) { }
 
-        public WebSocketConnection(Socket socket, bool socketIo)
-            : this(socket, 255)
+        public WebSocketConnection(Stream stream, bool socketIo)
+            : this(stream, 255)
         {
             this.isSocketIO = socketIo;
-            Listen();
         }
 
-        public WebSocketConnection(Socket socket, int bufferSize, bool socketIo)
-            : this(socket, bufferSize)
+        public WebSocketConnection(Stream stream, int bufferSize, bool socketIo)
+            : this(stream, bufferSize)
         {
             this.isSocketIO = socketIo;
-            Listen();
         }
-
 
         #endregion
 
@@ -127,28 +131,41 @@ namespace NWebSocketLib
         /// <param name="str">the string to send to the client</param>
         public void Send(string str)
         {
-            if (Socket.Connected)
+            try
             {
-                try
+                //Enqueue the message to be sent
+                lock (writeQueue)
                 {
-                    // start with a 0x00
-                    Socket.Send(new byte[] { (byte)WrapperBytes.Start }, 1, 0);
-                    // send the string
-                    if (isSocketIO)
-                        Socket.Send(Encoding.UTF8.GetBytes(EncodeMessage(str)));
-                    else
-                    Socket.Send(Encoding.UTF8.GetBytes(str));
-                    // end with a 0xFF
-                    Socket.Send(new byte[] { (byte)WrapperBytes.End }, 1, 0);
-
-                    //This is where the client can monitor all sent messages, for debugging or logging
-                    //onSocketEvent.OnNext(new SocketInfo(SocketInfoCode.Sent, str));
-                }
-                catch (Exception ex)
-                {
-                    onMessage.OnError(ex);
+                    writeQueue.Enqueue(str);
+                    Monitor.Pulse(writeQueue);
                 }
             }
+            catch (Exception ex)
+            {
+                OnError(ex);
+                Close();
+            }
+        }
+
+        private byte[] EncodeSendMessage(string str)
+        {
+            // start with a 0x00
+            List<byte> bufferToSend = new List<byte> { (byte)WrapperBytes.Start };
+
+            // Encode the string
+            if (isSocketIO)
+            {
+                var msg = Encoding.UTF8.GetBytes(EncodeMessage(str));
+                bufferToSend.AddRange(msg);
+            }
+            else
+            {
+                var msg = Encoding.UTF8.GetBytes(str);
+                bufferToSend.AddRange(msg);
+            }
+            // end with a 0xFF
+            bufferToSend.Add((byte)WrapperBytes.End);
+            return bufferToSend.ToArray();
         }
 
         /// <summary>
@@ -156,68 +173,99 @@ namespace NWebSocketLib
         /// </summary>
         public void Close()
         {
-            isClosed = true;
-            Socket.Close();
-            onSocketEvent.OnNext(new SocketInfo(SocketInfoCode.Closed, "Bye bye"));
-            onMessage.OnCompleted();
+            cancelSource.Cancel();
+            isConnected = false;
+            Stream.Close();
         }
 
         #endregion
 
         #region internal methods
 
+        List<byte> databuffer = new List<byte>();
+
+
+        bool receivedGuid = false;
+        string sessionKey = string.Empty;
         private void Frame(byte x)
         {
-            if (x == (byte)WrapperBytes.End)
+            try
             {
-                if (isSocketIO)
+                if (x == (byte)WrapperBytes.End)
                 {
-                    var msg = dataString.ToString();
-                    if (IsHeartbeat(msg))
-                        SendHeartBeat(msg);
+                    string msg = Encoding.UTF8.GetString(databuffer.ToArray(), 0, databuffer.Count);                    
+
+                    if (receivedGuid == false)
+                    {
+                        sessionKey = DecodeMessage(msg);
+                        receivedGuid = true;
+                    }
                     else
                     {
-                        onMessage.OnNext(DecodeMessage(msg));
+                        if (isSocketIO)
+                        {
+                            if (IsHeartbeat(msg))
+                                SendHeartBeat(msg);
+                            else
+                            {
+                                if (OnMessage != null)
+                                    OnMessage(DecodeMessage(msg));
+                            }
+                        }
+                        else
+                        {
+                            if (OnMessage != null)
+                                OnMessage(DecodeMessage(msg));
+                        }
                     }
+
+                    databuffer.Clear();
                 }
-                else
-                    onMessage.OnNext(dataString.ToString());
-                dataString = null;
-                dataString = new StringBuilder();
+                else if (x != (byte)WrapperBytes.Start)
+                {
+                    databuffer.Add(x);
+                }
             }
-            else if (x != (byte)WrapperBytes.Start)
+            catch (Exception ex)
             {
-                dataString.Append(Encoding.UTF8.GetString(new byte[1] { x }, 0, 1));
+                OnError(ex);
+                throw;
             }
         }
 
         private string EncodeMessage(string msg)
         {
-            return "~m~" + msg.Length + "~m~" + msg;
+            return MESSAGE_LENGTH_DELIMITER + msg.Length + MESSAGE_LENGTH_DELIMITER + msg;
         }
 
         private string DecodeMessage(string msg)
         {
-            return msg.Substring(msg.LastIndexOf('~') + 1);
+            return msg.Substring(msg.LastIndexOf(MESSAGE_LENGTH_DELIMITER) + 3);
         }
 
         private bool IsHeartbeat(string msg)
         {
-            return msg.Contains("~h~");
-        }
+            return msg.Contains(HEARTBEAT);
+        }      
 
         /// <summary>
         /// Listens for incomming data
         /// </summary>
-        private void Listen()
+        public void Listen()
         {
+
             try
             {
-                Socket.BeginReceive(dataBuffer, 0, dataBuffer.Length, 0, Read, null);
+                var async = Stream.BeginRead(dataBuffer, 0, dataBuffer.Length, Read, null);
+                async.AsyncWaitHandle.WaitOne();
             }
-            catch (SocketException ex)
+            catch (Exception ex)
             {
-                onMessage.OnError(ex);
+                if (OnError != null)
+                {
+                    OnError(ex);
+                    //OnError(new Exception("Unable to read from stream"));
+                }
                 Close();
             }
         }
@@ -227,7 +275,7 @@ namespace NWebSocketLib
         /// </summary>
         private void Read(IAsyncResult ar)
         {
-            if (isClosed)
+            if (!isConnected)
             {
                 return;
             }
@@ -235,24 +283,28 @@ namespace NWebSocketLib
             int sizeOfReceivedData = -1;
             try
             {
-                sizeOfReceivedData = Socket.EndReceive(ar);
+                sizeOfReceivedData = Stream.EndRead(ar);
             }
-            catch (SocketException se)
+            catch (Exception ex)
             {
-                onMessage.OnError(se);
+                OnError(ex);
+                Close();
                 return;
             }
             if (sizeOfReceivedData > 0)
             {
                 foreach (var c in dataBuffer)
-                    incomingStream.OnNext(c);
+                {
+                    Frame(c);
+                }
                 dataBuffer = new byte[bufferSize];
                 // continue listening for more data
                 Listen();
             }
-            else // the socket is closed
+            else
             {
-                onMessage.OnCompleted();
+                OnError(new Exception("Connection closed"));
+                Close();
             }
         }
 
@@ -268,9 +320,9 @@ namespace NWebSocketLib
         public void Dispose()
         {
             Close();
-            Socket = null;
+            Stream = null;
         }
 
-        #endregion
+        #endregion        
     }
 }

@@ -169,14 +169,14 @@ namespace NWebSocketLib
         void ClientDisconnected(WebSocketConnection sender, EventArgs e)
         {
             Connections.Remove(sender);
-            loggerEvents.OnNext(new Log(string.Format("{0} > {1} disconnected", DateTime.Now, sender.Socket.LocalEndPoint), ServerLogLevel.Subtle));
+            //loggerEvents.OnNext(new Log(string.Format("{0} > {1} disconnected", DateTime.Now, sender.Socket.LocalEndPoint), ServerLogLevel.Subtle));
         }
 
         void DataReceivedFromClient(WebSocketConnection sender, string data)
         {
             clientSocketEvents.OnNext(new ClientInfo(SocketInfoCode.Received, data));
             onMessage.OnNext(new Tuple<WebSocketConnection, string>(sender, data));
-            loggerEvents.OnNext(new Log(string.Format("{0} > data ({1} bytes) from {2} : {3}", DateTime.Now, Encoding.UTF8.GetByteCount(data), sender.Socket.LocalEndPoint,data), ServerLogLevel.Verbose));
+            //loggerEvents.OnNext(new Log(string.Format("{0} > data ({1} bytes) from {2} : {3}", DateTime.Now, Encoding.UTF8.GetByteCount(data), sender.Socket.LocalEndPoint,data), ServerLogLevel.Verbose));
         }
 
         /// <summary>
@@ -210,10 +210,10 @@ namespace NWebSocketLib
             clientSocketEvents.OnNext(new ClientInfo(SocketInfoCode.Connected, ""));
 
             if (LogLevel != ServerLogLevel.Nothing)
-            clientConnection.OnMessage.Subscribe(x =>
-            {
-                DataReceivedFromClient(clientConnection, x);
-            });
+            //clientConnection.OnMessage.Subscribe(x =>
+            //{
+            //    DataReceivedFromClient(clientConnection, x);
+            //});
             // listen for more clients
             ListenForClients();
         }
