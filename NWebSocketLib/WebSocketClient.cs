@@ -36,7 +36,6 @@ namespace NWebSocketLib
 
         private string certPath = "";
 
-//        private Stream socket;
         private bool handshakeComplete;
         private Stream networkStream;
 
@@ -149,8 +148,6 @@ namespace NWebSocketLib
             networkStream = CreateSocket();
             if (networkStream != null)
             {
-                //IPEndPoint localEndPoint = (IPEndPoint)socket.LocalEndPoint;
-                //int port = localEndPoint.Port;
                 if (uri.Port != 80)
                 {
                     host = host + ":" + uri.Port;
@@ -330,7 +327,7 @@ namespace NWebSocketLib
         {
             if (sslPolicyErrors == SslPolicyErrors.None)
                 return true;
-            return true;
+            return false;
         }
 
         public X509Certificate SelectLocalCertificate(
@@ -347,7 +344,7 @@ namespace NWebSocketLib
 
                 return null;
             }
-            catch (Exception ex)
+            catch
             {
                 throw;
             }
