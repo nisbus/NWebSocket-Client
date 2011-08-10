@@ -340,8 +340,6 @@ namespace NWebSocketLib
             X509Certificate remoteCertificate,
             string[] acceptableIssuers)
         {
-            Console.WriteLine("Client is selecting a local certificate.");
-
             try
             {
                 if(string.IsNullOrEmpty(certPath) == false)
