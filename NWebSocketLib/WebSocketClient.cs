@@ -311,7 +311,6 @@ namespace NWebSocketLib
                 else
                 {
                     TcpClient socket = new TcpClient(host, port);
-                    socket.Connect(host, port);
                     return socket.GetStream();
                 }
             }
