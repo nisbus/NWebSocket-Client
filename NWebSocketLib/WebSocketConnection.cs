@@ -186,7 +186,7 @@ namespace NWebSocketLib
 
 
         bool receivedGuid = false;
-        string sessionKey = string.Empty;
+//        string sessionKey;
         private void Frame(byte x)
         {
             try
@@ -197,7 +197,7 @@ namespace NWebSocketLib
 
                     if (receivedGuid == false)
                     {
-                        sessionKey = DecodeMessage(msg);
+//                        sessionKey = DecodeMessage(msg);
                         receivedGuid = true;
                     }
                     else
