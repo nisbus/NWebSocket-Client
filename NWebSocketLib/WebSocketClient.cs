@@ -12,11 +12,6 @@ using System.Security.Cryptography.X509Certificates;
 
 namespace NWebSocketLib
 {
-    public interface IMessageSource
-    {
-        event Action<string> OnMessage;
-    }
-
     /// <summary>
     /// WebSocket client.
     /// </summary>
@@ -206,7 +201,7 @@ namespace NWebSocketLib
 
                 handshakeComplete = true;
 
-                connection = new WebSocketConnection(networkStream, isSocketIo);
+                connection = new WebSocketConnection(networkStream, isSocketIo);                
                 SubscribeToConnectionEvents();
             }
             else
@@ -310,8 +305,7 @@ namespace NWebSocketLib
                 }
                 else
                 {
-                    TcpClient socket = new TcpClient(host, port);
-                    socket.Connect(host, port);
+                    TcpClient socket = new TcpClient(host, port);                    
                     return socket.GetStream();
                 }
             }

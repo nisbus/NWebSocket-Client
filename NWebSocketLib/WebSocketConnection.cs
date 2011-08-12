@@ -91,9 +91,7 @@ namespace NWebSocketLib
                         catch (Exception ex)
                         {
                             if (OnError != null && !cancelSource.IsCancellationRequested)
-                                OnError(ex);
-
-                            //throw;
+                                OnError(ex);                            
                         }
                     }
                 }
@@ -130,7 +128,7 @@ namespace NWebSocketLib
         /// </summary>
         /// <param name="str">the string to send to the client</param>
         public void Send(string str)
-        {
+        {            
             try
             {
                 //Enqueue the message to be sent
@@ -184,7 +182,6 @@ namespace NWebSocketLib
 
         List<byte> databuffer = new List<byte>();
 
-
         bool receivedGuid = false;
         string sessionKey = string.Empty;
         private void Frame(byte x)
@@ -194,7 +191,6 @@ namespace NWebSocketLib
                 if (x == (byte)WrapperBytes.End)
                 {
                     string msg = Encoding.UTF8.GetString(databuffer.ToArray(), 0, databuffer.Count);                    
-
                     if (receivedGuid == false)
                     {
                         sessionKey = DecodeMessage(msg);
@@ -253,18 +249,15 @@ namespace NWebSocketLib
         /// </summary>
         public void Listen()
         {
-
             try
             {
                 var async = Stream.BeginRead(dataBuffer, 0, dataBuffer.Length, Read, null);
-                async.AsyncWaitHandle.WaitOne();
             }
             catch (Exception ex)
             {
                 if (OnError != null)
                 {
                     OnError(ex);
-                    //OnError(new Exception("Unable to read from stream"));
                 }
                 Close();
             }
