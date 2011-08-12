@@ -165,7 +165,9 @@ namespace NWebSocketLib
                 byte[] encodedHandshake = Encoding.UTF8.GetBytes(response);
                 networkStream.Write(encodedHandshake, 0, encodedHandshake.Length);
                 networkStream.Flush();
-                var expectedAnswer = Encoding.UTF8.GetString(HandshakeHelper.CalculateAnswerBytes(shake.Key1, shake.Key2, shake.ChallengeBytes));
+				
+				//This needs to be implemented for security
+//                var expectedAnswer = Encoding.UTF8.GetString(HandshakeHelper.CalculateAnswerBytes(shake.Key1, shake.Key2, shake.ChallengeBytes));
 
                 inputStream = new StreamReader(networkStream);
                 //var input = inputStream.ReadToEnd();
@@ -220,7 +222,7 @@ namespace NWebSocketLib
         void connection_OnMessage(string obj)
         {
             if (OnMessage != null)
-                OnMessage(obj);
+                OnMessage(messageConversionFunc.Invoke(obj));
         }
 
         void connection_OnError(Exception ex)
@@ -333,7 +335,7 @@ namespace NWebSocketLib
         {
             try
             {
-                if(string.IsNullOrEmpty(certPath) == false)
+                if(!string.IsNullOrEmpty(certPath))
                     return X509Certificate.CreateFromCertFile(certPath);
 
                 return null;

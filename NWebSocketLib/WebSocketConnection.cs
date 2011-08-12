@@ -183,7 +183,7 @@ namespace NWebSocketLib
         List<byte> databuffer = new List<byte>();
 
         bool receivedGuid = false;
-        string sessionKey = string.Empty;
+//        string sessionKey;
         private void Frame(byte x)
         {
             try
@@ -193,7 +193,7 @@ namespace NWebSocketLib
                     string msg = Encoding.UTF8.GetString(databuffer.ToArray(), 0, databuffer.Count);                    
                     if (receivedGuid == false)
                     {
-                        sessionKey = DecodeMessage(msg);
+//                        sessionKey = DecodeMessage(msg);
                         receivedGuid = true;
                     }
                     else
